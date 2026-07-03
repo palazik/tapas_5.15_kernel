@@ -1040,11 +1040,11 @@ jobs:
               return {"tag": "li", "children": [f"{icon} {name}"]}
 
           content = [
-              {"tag": "h3", "children": ["OnePlus 13 (PJZ110) — palaziks kernel"]},
+              {"tag": "h3", "children": ["topaz / tapas — palaziks kernel"]},
               {"tag": "hr"},
               {"tag": "h4", "children": ["📋 Build Info"]},
               {"tag": "ul", "children": [
-                  {"tag": "li", "children": [{"tag": "strong", "children": ["Device: "]}, "OnePlus 13 PJZ110 (CN) / SM8750"]},
+                  {"tag": "li", "children": [{"tag": "strong", "children": ["Device: "]}, "topaz / tapas"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Kernel: "]}, f"{e('TG_KERNEL_VERSION')}-android15"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Manager: "]}, f"{e('TG_KSU_DISPLAY')} v{e('TG_KSUVER')}"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Suffix: "]}, f"-{e('TG_SUFFIX')}"]},
