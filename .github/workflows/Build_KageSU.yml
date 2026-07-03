@@ -25,10 +25,10 @@ on:
         type: boolean
         default: false
       lz4_enable:
-        description: 'Install LZ4 1.10.0 + ZSTD 1.5.7 Patch'
+        description: 'Install LZ4 1.10.0 + ZSTD 1.5.7 Patch (legacy — does NOT apply to CLO msm-5.15)'
         required: true
         type: boolean
-        default: true
+        default: false
       lz4kd_enable:
         description: 'Install LZ4KD Patch (ZRAM optimization)'
         required: true
@@ -483,7 +483,26 @@ jobs:
           cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
           cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
           cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
-          patch -p1 -F 3 < lz4kd.patch || true
+          # Fuzz-tolerant dry-run gate: keeps -F 3 tolerance but applies all-or-nothing, so a
+          # hunk that doesn't match CLO msm-5.15 (zcomp.c / module.c) can't leave a half-patched
+          # tree the way the old `patch -p1 -F 3 || true` could.
+          if patch -p1 -F 3 --batch --dry-run < lz4kd.patch >/dev/null 2>&1; then
+            patch -p1 -F 3 --batch < lz4kd.patch && echo "✅ LZ4KD patch applied"
+          else
+            echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped."
+          fi
+
+      - name: Set ZRAM default compressor (zstd — peak ratio)
+        working-directory: kernel_workspace
+        run: |
+          echo "Setting zstd as the default ZRAM compressor (in-tree, best usable ratio)..."
+          cat >> common/arch/arm64/configs/gki_defconfig << 'EOF'
+          CONFIG_ZRAM=y
+          CONFIG_ZSMALLOC=y
+          CONFIG_CRYPTO_ZSTD=y
+          CONFIG_ZRAM_DEF_COMP_ZSTD=y
+          CONFIG_ZRAM_DEF_COMP="zstd"
+          EOF
 
       - name: Configure ZRAM Writeback
         if: inputs.zram_writeback
