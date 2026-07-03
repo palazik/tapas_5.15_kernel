@@ -67,11 +67,6 @@ on:
           - 'none'
           - 'thin'
           - 'full'
-      bore_enable:
-        description: 'Enable BORE Scheduler (Burst-Oriented Response Enhancer, off by default)'
-        required: true
-        type: boolean
-        default: false
       zram_writeback:
         description: 'Enable ZRAM Writeback (better memory management)'
         required: true
@@ -963,7 +958,6 @@ jobs:
           echo "IP_SET+IPv6NAT: ${{ github.event.inputs.ip_set_enable }}" >> ./ak3.log
           echo "TTL: ${{ github.event.inputs.ttl_enable }}" >> ./ak3.log
           echo "MemOpt: ${{ github.event.inputs.mem_opt_patches }}" >> ./ak3.log
-          echo "BORE: ${{ github.event.inputs.bore_enable }}" >> ./ak3.log
           zip -z ../$AK3_NAME < ./ak3.log
 
       - name: 📤 Upload AnyKernel3
@@ -1024,7 +1018,6 @@ jobs:
           export TG_LZ4KD="${{ github.event.inputs.lz4kd_enable }}"
           export TG_MM="true"
           export TG_UFIX="true"
-          export TG_BORE="${{ github.event.inputs.bore_enable }}"
           export TG_ZWB="${{ github.event.inputs.zram_writeback }}"
           export TG_SCHED="${{ github.event.inputs.schedutil_opt }}"
           export TG_CLANG="topnotchfreaks-r547379"
@@ -1073,7 +1066,6 @@ jobs:
                   feat(e("TG_LZ4KD"),  "LZ4KD ZRAM"),
                   feat(e("TG_MM"),      "Multi-Manager Support"),
                   feat(e("TG_UFIX"),    "Unicode Bypass Fix"),
-                  feat(e("TG_BORE"),    "BORE Scheduler (EEVDF burst enhancer)"),
                   feat(e("TG_ZWB"),     "ZRAM Writeback"),
                   feat(e("TG_SCHED"),  "SchedUtil Optimizations"),
                   feat(e("TG_F2FS"),   "F2FS Optimizations"),
@@ -1233,8 +1225,7 @@ jobs:
           - **BBRv3:** true (stock)
           - **ADIOS IO:** ${{ github.event.inputs.adios_enable }}
           - **Baseband Guard:** ${{ github.event.inputs.baseband_guard }}
-          - **Unicode Fix:** true (stock)
-          - **BORE Scheduler:** ${{ github.event.inputs.bore_enable }}
+          - **Unicode Fix:** true
           - **WireGuard:** ${{ github.event.inputs.wireguard }}
           - **LRNG v59:** ${{ github.event.inputs.lrng_enable }}
           - **Wakelock Blocker:** ${{ github.event.inputs.wakelock_blocker }}
