@@ -453,13 +453,26 @@ jobs:
         run: |
           echo "Adding LZ4 & ZSTD patches..."
           cd kernel_workspace/common
-          mkdir -p lib/lz4/lz4armv8
+          # Apply atomically with a pre-check. git apply is all-or-nothing, so a patch that
+          # doesn't match (these mrcxlinux ones target a 6.6/oplus tree, not CLO msm-5.15)
+          # can NEVER leave a half-patched file — the old `patch -p1` left crypto/zstd.c
+          # partially applied, which would break the compile.
+          apply_safe() {
+            local f="$1"
+            if git apply --check -p1 "$f" 2>/dev/null; then
+              git apply -p1 "$f" && echo "✅ $(basename "$f") applied"
+            else
+              echo "⚠️ $(basename "$f") does not apply to CLO msm-5.15 — skipped cleanly"
+            fi
+          }
           cp ../kernel_patches/zram/001-lz4.patch ./
+          cp ../kernel_patches/zram/002-zstd.patch ./
+          # lz4armv8 accel sources (only referenced if the LZ4 patch actually applies)
+          mkdir -p lib/lz4/lz4armv8
           cp ../kernel_patches/zram/lz4armv8.S lib/lz4/lz4armv8.S
           cp ../kernel_patches/zram/lz4armv8.S lib/lz4/lz4armv8/lz4armv8.S
-          cp ../kernel_patches/zram/002-zstd.patch ./
-          git apply -p1 < 001-lz4.patch || echo "LZ4 Patch failed or already applied"
-          patch -p1 < 002-zstd.patch || echo "ZSTD Patch failed or already applied"
+          apply_safe 001-lz4.patch
+          apply_safe 002-zstd.patch
 
       - name: Apply LZ4KD Patch
         if: inputs.lz4kd_enable
