@@ -546,8 +546,15 @@ jobs:
           apply_patch() {
             local patch="$1"
             if [ -f "$PATCHES_DIR/$patch" ]; then
-              patch -p1 --forward < "$PATCHES_DIR/$patch" && \
-                echo "✅ $patch" || echo "⚠️ $patch (skipped/conflict)"
+              # Dry-run gate: only apply if EVERY hunk lands. Prevents a partial apply
+              # (e.g. optimise_memcmp.patch hunk #2) from leaving a half-patched file,
+              # which on a hot path like memcmp.S is a silent correctness bug, not just
+              # a build break.
+              if patch -p1 --forward --batch --dry-run < "$PATCHES_DIR/$patch" >/dev/null 2>&1; then
+                patch -p1 --forward --batch < "$PATCHES_DIR/$patch" >/dev/null && echo "✅ $patch"
+              else
+                echo "⚠️ $patch (skipped — would not fully apply)"
+              fi
             else
               echo "⚠️ $patch not found, skipping"
             fi
