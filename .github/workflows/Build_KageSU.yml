@@ -365,8 +365,6 @@ jobs:
           fi
 
           cd ./common
-          cp ../kernel_patches/common/EnablePOLLY.patch ./
-          git apply -p1 < EnablePOLLY.patch || true
 
           if [ "${{ github.event.inputs.SUSFS }}" == "true" ]; then
             # NOTE: android15-6.6 pre-patch fixups removed for the 5.15 tree. The
@@ -423,7 +421,6 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           echo "CONFIG_HEADERS_INSTALL=n" >> "$DEFCONFIG"
       
-          echo "CONFIG_LLVM_POLLY=y" >> "$DEFCONFIG"
           echo "CONFIG_LD_DEAD_CODE_DATA_ELIMINATION=y" >> "$DEFCONFIG"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$DEFCONFIG"
       
