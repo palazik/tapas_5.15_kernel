@@ -486,6 +486,16 @@ jobs:
           CONFIG_CRYPTO_842=y
           EOF
 
+      - name: Set ZRAM default compressor (lz4)
+        working-directory: kernel_workspace
+        run: |
+          echo "Setting lz4 as the default ZRAM compressor (in-tree, fast/low-latency)..."
+          cat >> common/arch/arm64/configs/gki_defconfig << 'EOF'
+          CONFIG_CRYPTO_LZ4=y
+          CONFIG_ZRAM_DEF_COMP_LZ4=y
+          CONFIG_ZRAM_DEF_COMP="lz4"
+          EOF
+
       - name: Configure ZRAM Writeback
         if: inputs.zram_writeback
         working-directory: kernel_workspace
