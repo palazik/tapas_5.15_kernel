@@ -36,14 +36,12 @@ Defaults are tuned for a daily-driver build; leave them alone if you're unsure.
 |---|---|---|
 | `SUSFS`            | on  | SUSFS integration (hides mounts/paths) |
 | `KPM`              | off | KernelSU KPM support |
-| `lz4_enable`       | on  | LZ4 1.10.0 + ZSTD 1.5.7 |
-| `lz4kd_enable`     | off | LZ4KD ZRAM path |
+| `zram_comp`        | lz4 | ZRAM default compressor: `lz4` / `lz4kd` / `zstd` / `lzo-rle` |
 | `bbr_enable`       | on  | TCP BBR/Brutal — `false` off, `true` add, `default` make default |
 | `adios_enable`     | on  | ADIOS I/O scheduler |
 | `rekernel_enable`  | off | Re-Kernel (app freezing) |
 | `baseband_guard`   | on  | Anti-brick modem protection |
 | `lto_type`         | thin| `none` / `thin` / `full` |
-| `bore_enable`      | off | BORE scheduler |
 | `zram_writeback`   | off | ZRAM writeback |
 | `schedutil_opt`    | off | schedutil governor tweaks |
 | `f2fs_opt`         | off | F2FS compression/perf |
@@ -59,10 +57,7 @@ Defaults are tuned for a daily-driver build; leave them alone if you're unsure.
 
 ## Notes
 
-- Built against the **CLO** msm-5.15 tree, so it's meant for ColorOS/OxygenOS/MIUI-style
-  bases. It is not an AOSP-clang build.
-- Some optional patches (Droidspaces oplus fixes, a few WildKernels ones) are OnePlus/oplus
-  specific and simply no-op on this tree — they won't fail the build.
+- Built against the **CLO** msm-5.15 tree.
 - SUSFS uses the `gki-android13-5.15` patch. If it ever can't apply against a CLO change,
   the build stops on purpose rather than shipping a half-patched kernel; turn `SUSFS` off for
   a clean baseline if that happens.

@@ -23,16 +23,16 @@ on:
         required: true
         type: boolean
         default: false
-      lz4_enable:
-        description: 'Install LZ4 1.10.0 + ZSTD 1.5.7 Patch (legacy — does NOT apply to CLO msm-5.15)'
+      zram_comp:
+        description: 'ZRAM default compressor'
         required: true
-        type: boolean
-        default: false
-      lz4kd_enable:
-        description: 'Install LZ4KD Patch (ZRAM optimization)'
-        required: true
-        type: boolean
-        default: false
+        type: choice
+        default: 'lz4'
+        options:
+          - 'lz4'
+          - 'lz4kd'
+          - 'zstd'
+          - 'lzo-rle'
       bbr_enable:
         description: "Enable TCP BBR/Brutal (false=off, true=add, default=set as default)"
         required: true
@@ -431,70 +431,46 @@ jobs:
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$DEFCONFIG"
           fi
 
-      - name: Apply LZ4 1.10.0 & ZSTD 1.5.7 Patches
-        if: inputs.lz4_enable
+      - name: 🗜️ Configure ZRAM compressor
+        working-directory: kernel_workspace/common
         run: |
-          echo "Adding LZ4 & ZSTD patches..."
-          cd kernel_workspace/common
-          # Apply atomically with a pre-check. git apply is all-or-nothing, so a patch that
-          # doesn't match (these mrcxlinux ones target a 6.6/oplus tree, not CLO msm-5.15)
-          # can NEVER leave a half-patched file — the old `patch -p1` left crypto/zstd.c
-          # partially applied, which would break the compile.
-          apply_safe() {
-            local f="$1"
-            echo "── $(basename "$f") ──"
-            if git apply --check -p1 "$f" 2>/dev/null; then
-              git apply -p1 "$f" && echo "✅ $(basename "$f") applied"
-            else
-              echo "⚠️ $(basename "$f") does not apply to CLO msm-5.15 — skipped cleanly. Reason:"
-              git apply --check -p1 "$f" 2>&1 | sed 's/^/    /' || true
-            fi
-          }
-          cp ../kernel_patches/zram/001-lz4.patch ./
-          cp ../kernel_patches/zram/002-zstd.patch ./
-          # lz4armv8 accel sources (only referenced if the LZ4 patch actually applies)
-          mkdir -p lib/lz4/lz4armv8
-          cp ../kernel_patches/zram/lz4armv8.S lib/lz4/lz4armv8.S
-          cp ../kernel_patches/zram/lz4armv8.S lib/lz4/lz4armv8/lz4armv8.S
-          apply_safe 001-lz4.patch
-          apply_safe 002-zstd.patch
-
-      - name: Apply LZ4KD Patch
-        if: inputs.lz4kd_enable
-        run: |
-          echo "Adding LZ4KD patch..."
-          cd kernel_workspace/common
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
-          cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
-          # Fuzz-tolerant dry-run gate: keeps -F 3 tolerance but applies all-or-nothing, so a
-          # hunk that doesn't match CLO msm-5.15 (zcomp.c / module.c) can't leave a half-patched
-          # tree the way the old `patch -p1 -F 3 || true` could.
-          if patch -p1 -F 3 --batch --dry-run < lz4kd.patch >/dev/null 2>&1; then
-            patch -p1 -F 3 --batch < lz4kd.patch && echo "✅ LZ4KD patch applied"
-          else
-            echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped. Dry-run detail:"
-            patch -p1 -F 3 --batch --dry-run < lz4kd.patch 2>&1 | sed 's/^/    /' || true
-          fi
-          # LZ4KD configs live here too — one step, one input (lz4kd_enable)
-          cat >> arch/arm64/configs/gki_defconfig << 'EOF'
-          CONFIG_ZSMALLOC=y
-          CONFIG_CRYPTO_LZ4HC=y
-          CONFIG_CRYPTO_LZ4K=y
-          CONFIG_CRYPTO_LZ4KD=y
-          CONFIG_CRYPTO_842=y
-          EOF
-
-      - name: Set ZRAM default compressor (lz4)
-        working-directory: kernel_workspace
-        run: |
-          echo "Setting lz4 as the default ZRAM compressor (in-tree, fast/low-latency)..."
-          cat >> common/arch/arm64/configs/gki_defconfig << 'EOF'
-          CONFIG_CRYPTO_LZ4=y
-          CONFIG_ZRAM_DEF_COMP_LZ4=y
-          CONFIG_ZRAM_DEF_COMP="lz4"
-          EOF
+          COMP="${{ github.event.inputs.zram_comp }}"
+          DEF="arch/arm64/configs/gki_defconfig"
+          echo "ZRAM default compressor: $COMP"
+          case "$COMP" in
+            lz4)
+              # LZ4 is in-tree on 5.15 — config only, no patch.
+              echo 'CONFIG_CRYPTO_LZ4=y' >> "$DEF"
+              echo 'CONFIG_ZRAM_DEF_COMP_LZ4=y' >> "$DEF"
+              echo 'CONFIG_ZRAM_DEF_COMP="lz4"' >> "$DEF"
+              ;;
+            lz4kd)
+              # LZ4KD needs SukiSU sources + a version-matched patch (all-or-nothing gate).
+              echo "Applying LZ4KD (SukiSU) sources + patch..."
+              cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+              cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
+              cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
+              cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
+              if patch -p1 -F 3 --batch --dry-run < lz4kd.patch >/dev/null 2>&1; then
+                patch -p1 -F 3 --batch < lz4kd.patch && echo "✅ LZ4KD patch applied"
+              else
+                echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped. Dry-run detail:"
+                patch -p1 -F 3 --batch --dry-run < lz4kd.patch 2>&1 | sed 's/^/    /' || true
+              fi
+              for c in CONFIG_ZSMALLOC=y CONFIG_CRYPTO_LZ4HC=y CONFIG_CRYPTO_LZ4K=y CONFIG_CRYPTO_LZ4KD=y CONFIG_CRYPTO_842=y CONFIG_ZRAM_DEF_COMP_LZ4=y; do
+                echo "$c" >> "$DEF"
+              done
+              ;;
+            zstd)
+              # zstd is in-tree — config only. Best ratio, slower than lz4.
+              echo 'CONFIG_CRYPTO_ZSTD=y' >> "$DEF"
+              echo 'CONFIG_ZRAM_DEF_COMP_ZSTD=y' >> "$DEF"
+              echo 'CONFIG_ZRAM_DEF_COMP="zstd"' >> "$DEF"
+              ;;
+            *)
+              echo "Leaving stock ZRAM default (lzo-rle)."
+              ;;
+          esac
 
       - name: Configure ZRAM Writeback
         if: inputs.zram_writeback
@@ -929,7 +905,7 @@ jobs:
             exit 1
           fi
           KSU_TYPENAME="KageSU"
-          if [[ "${{ github.event.inputs.lz4kd_enable }}" == "true" ]]; then
+          if [[ "${{ github.event.inputs.zram_comp }}" == "lz4kd" ]]; then
             wget https://raw.githubusercontent.com/$GITHUB_REPOSITORY/refs/heads/$GITHUB_REF_NAME/zram.zip || true
           fi
           AK3_NAME=AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_5.15.194_palaziks-ShiftPorts.zip
@@ -949,8 +925,7 @@ jobs:
           echo "KSU Ver: ${KSUVER}" >> ./ak3.log
           echo "SuSFS: ${{ github.event.inputs.SUSFS }}" >> ./ak3.log
           echo "KPM: ${{ github.event.inputs.KPM }}" >> ./ak3.log
-          echo "LZ4: ${{ github.event.inputs.lz4_enable }}" >> ./ak3.log
-          echo "LZ4KD: ${{ github.event.inputs.lz4kd_enable }}" >> ./ak3.log
+          echo "ZRAM comp: ${{ github.event.inputs.zram_comp }}" >> ./ak3.log
           echo "BBR&Brutal: ${{ github.event.inputs.bbr_enable }}" >> ./ak3.log
           echo "BBRv3: true (stock)" >> ./ak3.log
           echo "ADIOS: ${{ github.event.inputs.adios_enable }}" >> ./ak3.log
@@ -1016,8 +991,7 @@ jobs:
           export TG_BBR3="true"
           export TG_ADIOS="${{ github.event.inputs.adios_enable }}"
           export TG_BBG="${{ github.event.inputs.baseband_guard }}"
-          export TG_LZ4="${{ github.event.inputs.lz4_enable }}"
-          export TG_LZ4KD="${{ github.event.inputs.lz4kd_enable }}"
+          export TG_ZRAM_COMP="${{ github.event.inputs.zram_comp }}"
           export TG_MM="true"
           export TG_UFIX="true"
           export TG_ZWB="${{ github.event.inputs.zram_writeback }}"
@@ -1047,7 +1021,7 @@ jobs:
               {"tag": "h4", "children": ["📋 Build Info"]},
               {"tag": "ul", "children": [
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Device: "]}, "topaz / tapas"]},
-                  {"tag": "li", "children": [{"tag": "strong", "children": ["Kernel: "]}, f"{e('TG_KERNEL_VERSION')}-android15"]},
+                  {"tag": "li", "children": [{"tag": "strong", "children": ["Kernel: "]}, f"{e('TG_KERNEL_VERSION')}-android13"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Manager: "]}, f"{e('TG_KSU_DISPLAY')} v{e('TG_KSUVER')}"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["Suffix: "]}, f"-{e('TG_SUFFIX')}"]},
                   {"tag": "li", "children": [{"tag": "strong", "children": ["LTO: "]}, e("TG_LTO")]},
@@ -1064,8 +1038,7 @@ jobs:
                   feat(e("TG_BBR3"), "BBRv3 TCP Congestion Control"),
                   feat(e("TG_ADIOS"),   "ADIOS IO Scheduler"),
                   feat(e("TG_BBG"),     "Baseband Guard"),
-                  feat(e("TG_LZ4"),     "LZ4 1.10.0 + ZSTD 1.5.7"),
-                  feat(e("TG_LZ4KD"),  "LZ4KD ZRAM"),
+                  feat("true", f"ZRAM Compressor ({e('TG_ZRAM_COMP')})"),
                   feat(e("TG_MM"),      "Multi-Manager Support"),
                   feat(e("TG_UFIX"),    "Unicode Bypass Fix"),
                   feat(e("TG_ZWB"),     "ZRAM Writeback"),
@@ -1216,8 +1189,7 @@ jobs:
           - **Memory & Scheduler Optimizations:** ${{ github.event.inputs.mem_opt_patches }}
           - **Multi-Manager:** true
           - **KPM:** ${{ github.event.inputs.KPM }}
-          - **LZ4:** ${{ github.event.inputs.lz4_enable }}
-          - **LZ4KD:** ${{ github.event.inputs.lz4kd_enable }}
+          - **ZRAM compressor:** ${{ github.event.inputs.zram_comp }}
           - **ZRAM Writeback:** ${{ github.event.inputs.zram_writeback }}
           - **SchedUil Optimizations:** ${{ github.event.inputs.schedutil_opt }}
           - **BBR/Brutal:** ${{ github.event.inputs.bbr_enable }}
