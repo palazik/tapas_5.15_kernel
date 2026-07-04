@@ -381,6 +381,7 @@ jobs:
           TNF_BASE="https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main"
           for p in \
             0001-gki-fixup.patch \
+            0001-scripts-sign-builds.patch \
             0001-scripts-Don-t-append-and-dirty-to-localversion.patch \
             0001-scripts-do-not-ship-full-auto_localversion.patch; do
             echo "── $p ──"
@@ -396,15 +397,7 @@ jobs:
           echo "CONFIG_KSU=y" >> "$DEFCONFIG"
           echo "CONFIG_TMPFS_XATTR=y" >> "$DEFCONFIG"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$DEFCONFIG"
-      
-          if [[ "${{ github.event.inputs.lz4kd_enable }}" == "true" ]]; then
-            echo "CONFIG_ZSMALLOC=y" >> "$DEFCONFIG"
-            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$DEFCONFIG"
-            echo "CONFIG_CRYPTO_LZ4K=y" >> "$DEFCONFIG"
-            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$DEFCONFIG"
-            echo "CONFIG_CRYPTO_842=y" >> "$DEFCONFIG"
-          fi
-      
+
           if [ "${{ github.event.inputs.KPM }}" == "true" ]; then
             echo "📦 Enabling KPM..."
             echo "CONFIG_KPM=y" >> "$DEFCONFIG"
@@ -484,17 +477,13 @@ jobs:
             echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped. Dry-run detail:"
             patch -p1 -F 3 --batch --dry-run < lz4kd.patch 2>&1 | sed 's/^/    /' || true
           fi
-
-      - name: Set ZRAM default compressor (zstd — peak ratio)
-        working-directory: kernel_workspace
-        run: |
-          echo "Setting zstd as the default ZRAM compressor (in-tree, best usable ratio)..."
-          cat >> common/arch/arm64/configs/gki_defconfig << 'EOF'
-          CONFIG_ZRAM=y
+          # LZ4KD configs live here too — one step, one input (lz4kd_enable)
+          cat >> arch/arm64/configs/gki_defconfig << 'EOF'
           CONFIG_ZSMALLOC=y
-          CONFIG_CRYPTO_ZSTD=y
-          CONFIG_ZRAM_DEF_COMP_ZSTD=y
-          CONFIG_ZRAM_DEF_COMP="zstd"
+          CONFIG_CRYPTO_LZ4HC=y
+          CONFIG_CRYPTO_LZ4K=y
+          CONFIG_CRYPTO_LZ4KD=y
+          CONFIG_CRYPTO_842=y
           EOF
 
       - name: Configure ZRAM Writeback
@@ -1080,9 +1069,6 @@ jobs:
                   feat(e("TG_TTL"),         "TTL/HL Target (hide tethering)"),
                   feat(e("TG_MEM_OPT"),     "Memory & Scheduler Optimizations"),
               ]},
-              {"tag": "hr"},
-              {"tag": "h4", "children": ["🎯 ROM Compatibility"]},
-              {"tag": "p", "children": ["⚠️ Built with topnotchfreaks Clang (r547379) for ColorOS / OxygenOS ONLY. To flash on an AOSP-based ROM, build the matching \"... AOSP\" workflow yourself — AOSP Clang builds are for AOSP ROMs only."]},
               {"tag": "hr"},
               {"tag": "h4", "children": ["📥 Installation"]},
               {"tag": "ol", "children": [
