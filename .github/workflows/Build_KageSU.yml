@@ -8,7 +8,6 @@ env:
   TZ: Asia/Shanghai
   ANDROID_VERSION: 'android13'
   KERNEL_VERSION: '5.15'
-  KERNEL_NAME: 'android13-8-g29d86c5fc9dd-abogki428889875-4k'
   CCACHE_KEY: ccache-neov4-5.15.194
 
 on:
@@ -382,7 +381,6 @@ jobs:
           TNF_BASE="https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main"
           for p in \
             0001-gki-fixup.patch \
-            0001-scripts-sign-builds.patch \
             0001-scripts-Don-t-append-and-dirty-to-localversion.patch \
             0001-scripts-do-not-ship-full-auto_localversion.patch; do
             echo "── $p ──"
