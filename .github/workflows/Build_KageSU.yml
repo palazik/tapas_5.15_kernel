@@ -449,10 +449,12 @@ jobs:
           # partially applied, which would break the compile.
           apply_safe() {
             local f="$1"
+            echo "── $(basename "$f") ──"
             if git apply --check -p1 "$f" 2>/dev/null; then
               git apply -p1 "$f" && echo "✅ $(basename "$f") applied"
             else
-              echo "⚠️ $(basename "$f") does not apply to CLO msm-5.15 — skipped cleanly"
+              echo "⚠️ $(basename "$f") does not apply to CLO msm-5.15 — skipped cleanly. Reason:"
+              git apply --check -p1 "$f" 2>&1 | sed 's/^/    /' || true
             fi
           }
           cp ../kernel_patches/zram/001-lz4.patch ./
@@ -479,7 +481,8 @@ jobs:
           if patch -p1 -F 3 --batch --dry-run < lz4kd.patch >/dev/null 2>&1; then
             patch -p1 -F 3 --batch < lz4kd.patch && echo "✅ LZ4KD patch applied"
           else
-            echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped."
+            echo "⚠️ lz4kd.patch does not apply cleanly to CLO msm-5.15 — skipped. Dry-run detail:"
+            patch -p1 -F 3 --batch --dry-run < lz4kd.patch 2>&1 | sed 's/^/    /' || true
           fi
 
       - name: Set ZRAM default compressor (zstd — peak ratio)
@@ -539,11 +542,13 @@ jobs:
               # Dry-run gate: only apply if EVERY hunk lands. Prevents a partial apply
               # (e.g. optimise_memcmp.patch hunk #2) from leaving a half-patched file,
               # which on a hot path like memcmp.S is a silent correctness bug, not just
-              # a build break.
+              # a build break. Output is shown (offsets/fuzz/rejects) for diagnosis.
+              echo "── $patch ──"
               if patch -p1 --forward --batch --dry-run < "$PATCHES_DIR/$patch" >/dev/null 2>&1; then
-                patch -p1 --forward --batch < "$PATCHES_DIR/$patch" >/dev/null && echo "✅ $patch"
+                patch -p1 --forward --batch < "$PATCHES_DIR/$patch" && echo "✅ $patch"
               else
-                echo "⚠️ $patch (skipped — would not fully apply)"
+                echo "⚠️ $patch would NOT fully apply — skipped. Dry-run detail:"
+                patch -p1 --forward --batch --dry-run < "$PATCHES_DIR/$patch" 2>&1 | sed 's/^/    /' || true
               fi
             else
               echo "⚠️ $patch not found, skipping"
