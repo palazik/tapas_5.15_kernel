@@ -1,7 +1,7 @@
 # tapas / topaz 5.15 kernel
 
 A GitHub Actions workflow that builds a GKI **android13-5.15** kernel (5.15.194) with
-**KageSU** (KernelSU) baked in, packaged as a flashable AnyKernel3 zip. Aimed at topaz /
+**ReSukiSU** (KernelSU) baked in, packaged as a flashable AnyKernel3 zip. Aimed at topaz /
 tapas but, being GKI, it runs on any android13 5.15 device that boots a generic kernel image.
 
 Everything happens in CI — there's no kernel source in this repo, only the build recipe.
@@ -12,8 +12,8 @@ Everything happens in CI — there's no kernel source in this repo, only the bui
 |---|---|
 | Source    | CLO `msm-5.15`, branch `kernel.lnx.5.15.r1-rel` (cloned at build time) |
 | Toolchain | topnotchfreaks Clang `r547379` (LLVM), full LLVM/IAS build |
-| Root      | KageSU (builtin), with optional SUSFS |
-| Output    | `AnyKernel3_KageSU_<ver>_5.15.194_palaziks-ShiftPorts.zip` |
+| Root      | ReSukiSU (main), with optional SUSFS |
+| Output    | `AnyKernel3_ReSukiSU_<ver>_5.15.194_palaziks-ShiftPorts.zip` |
 
 Build speed is kept sane with ccache (public cache pull + ECS backend), a RAM-disk output
 dir, and a ThinLTO link cache.
@@ -21,7 +21,7 @@ dir, and a ThinLTO link cache.
 ## Building
 
 1. Fork / use this repo, then open the **Actions** tab.
-2. Pick **KageSU 5.15 Build** → **Run workflow**.
+2. Pick **ReSukiSU 5.15 Build** → **Run workflow**.
 3. Toggle the options you want (see below) and start it.
 4. Grab the AnyKernel3 zip from the run's artifacts (or a GitHub Release if you enabled that).
 
@@ -64,7 +64,7 @@ Defaults are tuned for a daily-driver build; leave them alone if you're unsure.
 
 ## Credits
 
-- [KageSU / KernelSU](https://github.com/KageKSU/KageSU)
+- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU)
 - [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
 - [topnotchfreaks](https://github.com/topnotchfreaks) — Clang toolchain and base patches
 - [WildKernels](https://github.com/TheWildJames/kernel_patches) — optimization patches
